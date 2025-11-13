@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phân tích EEG - Phát hiện Parkinson's</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: #007bff;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .upload-area {
+            border: 3px dashed #007bff;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            border-color: #0056b3;
+            background: #e8f0fe;
+        }
+
+        .upload-area.dragging {
+            background: #d4e4f7;
+            border-color: #0056b3;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: transform 0.3s;
+            margin-top: 20px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            background: #0056b3;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .results {
+            display: none;
+        }
+        
+        .diagnosis-box {
+            padding: 25px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 1.3em;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .risk-high {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+
+        .risk-medium {
+            background: #fff3cd;
+            color: #856404;
+            border: 2px solid #ffeaa7;
+        }
+
+        .risk-low {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 2px solid #bee5eb;
+        }
+
+        .risk-normal {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007bff;
+            margin: 10px 0;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .segments-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .segment-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .chart-container {
+            margin: 30px 0;
+            height: 300px;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        select {
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            background: white;
+            font-size: 1em;
+        }
+
+        .plot-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .plot-image {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 Phân tích EEG</h1>
+            <p>Hệ thống phát hiện dấu hiệu Parkinson's từ tín hiệu não</p>
+        </div>
+        
+        <div class="card">
+            <h2>📤 Upload file EEG (.bdf)</h2>
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <p><strong>Kéo thả file vào đây</strong> hoặc click để chọn</p>
+                <p style="color: #999; margin-top: 10px;">Chỉ chấp nhận file .bdf (tối đa 100MB)</p>
+                <input type="file" id="fileInput" accept=".bdf">
+            </div>
+            <div style="text-align: center;">
+                <button class="btn" id="uploadBtn" disabled>Phân tích</button>
+            </div>
+            
+            <div class="error" id="errorBox"></div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Đang xử lý file EEG... Vui lòng đợi</p>
+            </div>
+        </div>
+        
+        <div class="card results" id="results">
+            <h2>📊 Kết quả phân tích</h2>
+            
+            <div class="diagnosis-box" id="diagnosisBox">
+                <div id="diagnosisText"></div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Tỷ lệ PD</div>
+                    <div class="stat-value" id="pdRatio">0%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Độ tin cậy PD</div>
+                    <div class="stat-value" id="pdConfidence">0%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Độ tin cậy HC</div>
+                    <div class="stat-value" id="hcConfidence">0%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Thời lượng</div>
+                    <div class="stat-value" id="duration">0s</div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="predictionChart"></canvas>
+            </div>
+            
+            <h3>⚠️ Các khoảng thời gian có dấu hiệu PD</h3>
+            <div class="segments-list" id="segmentsList">
+                <p style="text-align: center; color: #999;">Không có dấu hiệu bất thường</p>
+            </div>
+
+            <h3>📊 Trực quan hóa EEG</h3>
+            <div class="controls">
+                <div>
+                    <label for="channelSelect">Chọn kênh:</label>
+                    <select id="channelSelect">
+                        <option value="">Chọn kênh</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="bandSelect">Chọn dải tần:</label>
+                    <select id="bandSelect">
+                        <option value="Delta (0.5–4 Hz)">Delta (0.5–4 Hz)</option>
+                        <option value="Theta (4–8 Hz)">Theta (4–8 Hz)</option>
+                        <option value="Alpha (8–13 Hz)">Alpha (8–13 Hz)</option>
+                        <option value="Beta (13–30 Hz)">Beta (13–30 Hz)</option>
+                        <option value="Gamma (30–40 Hz)">Gamma (30–40 Hz)</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="epochSelect">Chọn epoch cho XAI:</label>
+                    <select id="epochSelect">
+                        <option value="">Chọn epoch</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="bandPowersChart"></canvas>
+            </div>
+
+            <div class="plot-container">
+                <h4>📈 Tín hiệu EEG</h4>
+                <img id="signalPlot" class="plot-image" style="display: none;" alt="EEG Signal">
+            </div>
+
+            <div class="plot-container">
+                <h4>🔬 Phổ tần EEG</h4>
+                <img id="psdPlot" class="plot-image" style="display: none;" alt="PSD Plot">
+            </div>
+
+            <div class="plot-container">
+                <h4>🤖 Giải thích AI (Integrated Gradients)</h4>
+                <img id="xaiPlot" class="plot-image" style="display: none;" alt="XAI Plot">
+            </div>
+
+            <div style="margin-top: 30px; padding: 20px; background: #e9ecef; border-radius: 10px;">
+                <p><strong>⚕️ Lưu ý y khoa:</strong></p>
+                <ul style="margin-left: 20px; margin-top: 10px;">
+                    <li>Kết quả này chỉ mang tính chất tham khảo</li>
+                    <li>Cần có chẩn đoán từ bác sĩ chuyên khoa thần kinh</li>
+                    <li>Nếu có dấu hiệu bất thường, hãy đến cơ sở y tế để khám</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const errorBox = document.getElementById('errorBox');
+        const channelSelect = document.getElementById('channelSelect');
+        const bandSelect = document.getElementById('bandSelect');
+        const epochSelect = document.getElementById('epochSelect');
+        const signalPlot = document.getElementById('signalPlot');
+        const psdPlot = document.getElementById('psdPlot');
+        const xaiPlot = document.getElementById('xaiPlot');
+
+        let selectedFile = null;
+        let sessionId = null;
+        let chNames = [];
+        let nEpochs = 0;
+        
+        // Click to select file
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        // File selected
+        fileInput.addEventListener('change', (e) => {
+            selectedFile = e.target.files[0];
+            if (selectedFile) {
+                uploadArea.innerHTML = `
+                    <div class="upload-icon">✅</div>
+                    <p><strong>${selectedFile.name}</strong></p>
+                    <p style="color: #999;">Size: ${(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                `;
+                uploadBtn.disabled = false;
+            }
+        });
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragging');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragging');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragging');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                selectedFile = files[0];
+                fileInput.files = files;
+                fileInput.dispatchEvent(new Event('change'));
+            }
+        });
+        
+        // Upload and analyze
+        uploadBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+            
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            
+            loading.style.display = 'block';
+            results.style.display = 'none';
+            errorBox.style.display = 'none';
+            uploadBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayResults(data.result, data.predictions, data.probabilities);
+                } else {
+                    showError(data.error || 'Có lỗi xảy ra');
+                }
+            } catch (error) {
+                showError('Không thể kết nối đến server');
+            } finally {
+                loading.style.display = 'none';
+                uploadBtn.disabled = false;
+            }
+        });
+        
+        function displayResults(result, predictions, probabilities) {
+            results.style.display = 'block';
+            sessionId = result.session_id;
+            chNames = result.ch_names || [];
+            nEpochs = result.n_epochs || 0;
+
+            // Diagnosis
+            const diagnosisBox = document.getElementById('diagnosisBox');
+            diagnosisBox.className = 'diagnosis-box risk-' + result.risk_level;
+            document.getElementById('diagnosisText').textContent = result.diagnosis;
+
+            // Stats
+            document.getElementById('pdRatio').textContent = result.pd_ratio + '%';
+            document.getElementById('pdConfidence').textContent = result.avg_prob_pd + '%';
+            document.getElementById('hcConfidence').textContent = result.avg_prob_hc + '%';
+            document.getElementById('duration').textContent = (result.total_epochs * 2) + 's';
+
+            // Chart
+            createChart(predictions);
+
+            // Segments
+            displaySegments(result.pd_segments);
+
+            // Populate selects
+            populateSelects();
+
+            // Load band powers
+            loadBandPowers();
+
+            // Scroll to results
+            results.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function createChart(predictions) {
+            const ctx = document.getElementById('predictionChart');
+            
+            // Destroy old chart if exists
+            if (window.myChart) {
+                window.myChart.destroy();
+            }
+            
+            const labels = predictions.map((_, i) => `${i*2}-${i*2+2}s`);
+            const colors = predictions.map(p => p === 1 ? 'rgba(255, 99, 132, 0.7)' : 'rgba(75, 192, 192, 0.7)');
+            
+            window.myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Dự đoán (0: HC, 1: PD)',
+                        data: predictions,
+                        backgroundColor: colors,
+                        borderColor: colors.map(c => c.replace('0.7', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Phân loại theo thời gian'
+                        }
+                    }
+                }
+            });
+        }
+        
+        function displaySegments(segments) {
+            const list = document.getElementById('segmentsList');
+
+            if (segments.length === 0) {
+                list.innerHTML = '<p style="text-align: center; color: #999;">Không có dấu hiệu bất thường</p>';
+                return;
+            }
+
+            list.innerHTML = segments.map(seg => `
+                <div class="segment-item">
+                    <strong>Epoch ${seg.epoch}:</strong> ${seg.start_time}s - ${seg.end_time}s
+                    <br>
+                    <span style="color: #007bff;">Độ tin cậy: ${seg.confidence}%</span>
+                </div>
+            `).join('');
+        }
+
+        function populateSelects() {
+            channelSelect.innerHTML = '<option value="">Chọn kênh</option>';
+            chNames.forEach(ch => {
+                channelSelect.innerHTML += `<option value="${ch}">${ch}</option>`;
+            });
+
+            epochSelect.innerHTML = '<option value="">Chọn epoch</option>';
+            for (let i = 0; i < nEpochs; i++) {
+                epochSelect.innerHTML += `<option value="${i}">Epoch ${i}</option>`;
+            }
+        }
+
+        async function loadBandPowers() {
+            if (!sessionId) return;
+            try {
+                const response = await fetch(`/bandpowers/${sessionId}`);
+                const data = await response.json();
+                createBandPowersChart(data);
+            } catch (error) {
+                console.error('Error loading band powers:', error);
+            }
+        }
+
+        function createBandPowersChart(data) {
+            const ctx = document.getElementById('bandPowersChart');
+            if (window.bandPowersChart) {
+                window.bandPowersChart.destroy();
+            }
+
+            const labels = Object.keys(data);
+            const values = Object.values(data);
+
+            window.bandPowersChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Công suất trung bình',
+                        data: values,
+                        backgroundColor: 'rgba(0, 123, 255, 0.7)',
+                        borderColor: 'rgba(0, 123, 255, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Công suất theo dải tần'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Event listeners for selects
+        channelSelect.addEventListener('change', async () => {
+            const channel = channelSelect.value;
+            const band = bandSelect.value;
+            if (channel && band) {
+                await loadPSD(channel, band);
+            }
+            if (channel) {
+                await loadSignal(channel);
+            }
+        });
+
+        bandSelect.addEventListener('change', async () => {
+            const channel = channelSelect.value;
+            const band = bandSelect.value;
+            if (channel && band) {
+                await loadPSD(channel, band);
+            }
+        });
+
+        epochSelect.addEventListener('change', async () => {
+            const epoch = epochSelect.value;
+            if (epoch !== '') {
+                await loadXAI(epoch);
+            }
+        });
+
+        async function loadSignal(channel) {
+            try {
+                const response = await fetch(`/signal/${sessionId}/${channel}`);
+                const data = await response.json();
+                signalPlot.src = data.image;
+                signalPlot.style.display = 'block';
+            } catch (error) {
+                console.error('Error loading signal:', error);
+                signalPlot.style.display = 'none';
+            }
+        }
+
+        async function loadPSD(channel, band) {
+            try {
+                const response = await fetch(`/psd/${sessionId}/${channel}/${encodeURIComponent(band)}`);
+                const data = await response.json();
+                psdPlot.src = data.image;
+                psdPlot.style.display = 'block';
+            } catch (error) {
+                console.error('Error loading PSD:', error);
+                psdPlot.style.display = 'none';
+            }
+        }
+
+        async function loadXAI(epoch) {
+            try {
+                const response = await fetch(`/visualize/${sessionId}/${epoch}`);
+                const data = await response.json();
+                xaiPlot.src = data.image;
+                xaiPlot.style.display = 'block';
+            } catch (error) {
+                console.error('Error loading XAI:', error);
+                xaiPlot.style.display = 'none';
+            }
+        }
+        
+        function showError(message) {
+            errorBox.textContent = '❌ ' + message;
+            errorBox.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

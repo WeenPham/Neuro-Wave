@@ -1,0 +1,13 @@
+flask
+flask-cors
+numpy
+mne
+torch
+transformers
+werkzeug
+streamlit
+captum
+matplotlib
+scikit-learn
+pyngrok
+flask_ngrok
