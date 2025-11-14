@@ -6,7 +6,7 @@
 ![DeepLearning](https://img.shields.io/badge/DeepLearning-PyTorch-red)
 ![Status](https://img.shields.io/badge/Status-Completed-success)
 
-![Project Cover](images/cover.png) <!-- Giả sử có hình ảnh cover trong thư mục images; thay thế bằng tên file thực tế nếu có -->
+![Project Cover](images/cover.jpg) <!-- Giả sử có hình ảnh cover trong thư mục images; thay thế bằng tên file thực tế nếu có -->
 
 ## Table of Contents
 - [Project Description](#project-description)
