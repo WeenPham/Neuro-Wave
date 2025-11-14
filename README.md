@@ -44,7 +44,7 @@ The project includes data preprocessing (band-pass filtering, ICA artifact remov
 
 ![Explainable AI Visualization](images/xAI.png) <!-- Hình ảnh từ Figure 5: Explainable AI on EEG test file -->
 
-![Process Data EEG](images/choice.png) <!-- Hình ảnh từ Figure 4: Website interface implemented with Streamlit -->
+![Process Data EEG](images/Choice.png) <!-- Hình ảnh từ Figure 4: Website interface implemented with Streamlit -->
 
 
 
