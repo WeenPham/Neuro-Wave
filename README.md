@@ -54,7 +54,7 @@ For more details, refer to the full report in [SLP301_GROUP5_Report.pdf](SLP301_
 
 This project was developed by the following core team members:
 
-- **Lê Thị Huỳnh Như**  
+- **Lê Thị Huỳnh Như (Leader)**  
   Email: nhuhuynhlethi1508@gmail.com  
   GitHub: [Huynhnhu169](https://github.com/Huynhnhu169)
 
